@@ -1,0 +1,245 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Virtual Change Lab</title>
+<style>
+:root{box-sizing:border-box;--bg:#f4f6f8;--fg:#1d2733;--card:#fff;--bd:#cfd8e0;--acc:#1f6feb;--bad:#c62828;--ok:#2e7d32;--warn:#b26a00}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12171d;--fg:#e6edf3;--card:#1b232c;--bd:#33414f;--acc:#5aa2ff;--bad:#ff6b6b;--ok:#6fd37a;--warn:#ffb454}}
+:root[data-theme="dark"]{--bg:#12171d;--fg:#e6edf3;--card:#1b232c;--bd:#33414f;--acc:#5aa2ff;--bad:#ff6b6b;--ok:#6fd37a;--warn:#ffb454}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:12px 16px}
+h1{font-size:1.2rem;margin:4px 0}h2{font-size:1.02rem;margin:0 0 6px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:minmax(250px,340px) 1fr;gap:12px;align-items:start}
+@media(max-width:780px){.grid{grid-template-columns:1fr}}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--acc)}button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.gear.on{background:var(--ok);border-color:var(--ok)}
+.stp{display:block;width:100%;text-align:left;margin:4px 0}.stp.dn{border-color:var(--ok)}
+div.stp.cur{border:2px solid var(--acc);border-radius:8px;padding:8px;background:var(--bg)}
+div.stp p{margin:6px 0}
+textarea{width:100%;min-height:80px;font:inherit;background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;box-sizing:border-box;margin:4px 0}
+svg#sc{width:100%;display:block;border-radius:8px;touch-action:none;user-select:none;-webkit-user-select:none}
+.log{min-height:70px;max-height:130px;overflow:auto;margin-top:8px}.log p{margin:2px 0}.m{color:var(--warn)}.v{color:var(--bad)}.g{color:var(--ok)}
+#mdl{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+#mdl div{background:var(--card);border:3px solid var(--bad);border-radius:12px;padding:18px;max-width:440px}
+details{margin:4px 0}
+</style></head><body><main>
+<h1>🧪 Virtual Lab: Physical Change – Chemical Change</h1>
+<div id="app"></div></main>
+<div id="mdl"><div><h2 class="v">⚠️ SAFETY VIOLATION</h2><p id="vt"></p><p><b>Your teacher stops the lab.</b> Reset your station and try again safely.</p><button onclick="rst()">Restart station</button></div></div>
+<script>
+const $=i=>document.getElementById(i),dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]),esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const PN={g:'🥽 Goggles',a:'🥼 Apron',h:'💇 Hair tied back'},PM={g:'You worked without eye protection and chemicals or glass reached your eyes!',a:'You handled acid without an apron!',h:'Your loose hair got close to the open flame!'};
+const P={g:0,a:0,h:0};
+let cur=0,Vn=0,done={},pcv={},OB={},Ws={},log=[],sd=null,tk=0,ind=[];
+const IND=['Color change','Gas produced (bubbles/odor)','Precipitate (new solid) formed','Energy change (heat or light)','Change in shape','Change in state (liquid to gas)','Dissolving'],IA=[0,1,2,3];
+/* ---------- drawing helpers ---------- */
+const BG='<rect width=600 height=300 fill="#e7e0cf" /><rect y=270 width=600 height=30 fill="#cdbf9f" />';
+const g=(k,x,y,s,hx=-35,hy=-45,hw=70,hh=95)=>`<g data-k="${k}" style="cursor:grab" transform="translate(${x} ${y})"><rect x=${hx} y=${hy} width=${hw} height=${hh} fill="transparent" />${s}</g>`;
+const T=(x,y,s,a)=>`<text x=${x} y=${y} font-size=13 fill="#333"${a?` text-anchor=${a}`:''}>${s}</text>`;
+const lab=(s,y)=>`<text y=${y} font-size=11 text-anchor=middle fill="#333">${s}</text>`;
+const HAND=l=>`<text font-size=34 text-anchor=middle y=10>✋</text>`+lab(l||'bare hand',32);
+const DB=(l,c)=>`<rect x=-16 y=-8 width=32 height=38 rx=6 fill="${c}" stroke="#555" /><rect x=-5 y=-30 width=10 height=24 fill="#444" /><circle cy=-34 r=8 fill="#222" />`+lab(l,44);
+const TB=(lv,col,pp,rot)=>`<g transform="rotate(${rot||0})"><rect x=-10 y=-36 width=20 height=72 rx=10 fill="#e3f2f5" stroke="#6a7a86" stroke-width=2 />`+(lv?`<rect x=-8 y=${34-lv*52} width=16 height=${lv*52} rx=6 fill="${col}" />`+(pp?`<rect x=-8 y=${34-lv*52} width=16 height=${lv*52} rx=6 fill="#ffd400" opacity="${Math.min(1,pp/60)}" />`:''):'')+'</g>';
+const fz=(px,py,x,y)=>{const dx=Math.abs(px-x),dy=py-y;return dx<17&&dy>-176&&dy<-138?2:dx<25&&dy>-204&&dy<-102?1:0};
+const bn=(x,y,lit,k)=>{const f=lit?[0,7,-4,3][tk%4]:0;return `<g ${k?`data-k="${k}" style="cursor:grab" `:''}transform="translate(${x} ${y})">${k?'<rect x=-30 y=-102 width=60 height=108 fill="transparent" />':''}<rect x=-30 y=-6 width=60 height=10 rx=3 fill="#555" /><rect x=-8 y=-102 width=16 height=100 fill="#7d858f" />${lit?`<path d="M0 -102C-28 -124 -20 -164 0 ${-204+f}C20 -164 28 -124 0 -102Z" fill="#ffb347" opacity=".85" /><path d="M0 -102C-11 -118 -8 -136 0 ${-152+f/2}C8 -136 11 -118 0 -102Z" fill="#3b6fe0" />`:''}<g data-k="v" style="cursor:pointer"><circle cx=40 cy=-8 r=13 fill="#c33" /><text x=24 y=22 font-size=11 fill="#333">valve</text></g></g>`};
+const clk=h=>{const t=Math.round(h*1.2);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')};
+const tipc=(inn,h)=>inn&&h<100?'#ff8f2e':`rgb(${Math.round(199-165*h/100)},${Math.round(125-91*h/100)},${Math.round(58-24*h/100)})`;
+const btn=(k,x,y,w,s)=>`<g data-k="${k}" style="cursor:pointer"><rect x=${x} y=${y} width=${w} height=26 rx=6 fill="#f5c542" stroke="#8a6d00" /><text x=${x+w/2} y=${y+17} text-anchor=middle font-size=12 fill="#222">${s}</text></g>`;
+const RACK=rdy=>`<rect x=422 y=166 width=166 height=106 rx=8 fill="#b88a5a" stroke="#6b4f3a" stroke-width=3 />`+[455,490,525,560].map(x=>`<line x1=${x} y1=262 x2=${x} y2=204 stroke="#7a5230" stroke-width=7 stroke-linecap="round" />`).join('')+`<rect x=422 y=262 width=166 height=10 fill="#6b4f3a" /><text x=505 y=160 font-size=13 font-weight=bold text-anchor=middle fill="#333">TEST TUBE RACK (drying pegs)</text>`+(rdy?`<rect x=414 y=170 width=182 height=108 rx=10 fill="none" stroke="#2e9d3a" stroke-width=4 stroke-dasharray="8 5" /><text x=505 y=291 font-size=12 font-weight=bold text-anchor=middle fill="#1b6e27">Drop the clean tube here, mouth-down</text>`:'');
+const CLOSE=v=>{const n=v.ki+v.pb;if(!n)return'';const L=Math.min(1,n/12),hh=Math.max(10,Math.round(L*95)),top=186-hh,p=Math.min(1,v.pp/60),pr=v.pp>0&&v.pp<100?[0,1,2,3,4,5,6].map(i=>`<circle cx=${222+i*6.5} cy=${top+4+((tk*2+i*19)%Math.max(8,hh-8))} r=3 fill="#ffcc00" />`).join(''):'',st=v.pp>40?`<ellipse cx=240 cy=183 rx=21 ry=${2+(v.pp-40)/60*7} fill="#e0a800" />`:'';
+ return `<rect x=186 y=34 width=108 height=178 rx=10 fill="#fdfdf6" stroke="#8a8a7a" stroke-width=2 /><text x=240 y=50 font-size=11 text-anchor=middle fill="#555">Close-up of tube</text><rect x=214 y=62 width=52 height=128 rx=26 fill="#e3f2f5" stroke="#6a7a86" stroke-width=3 /><rect x=217 y=${top} width=46 height=${hh} rx=22 fill="#d7eef5" /><rect x=217 y=${top} width=46 height=${hh} rx=22 fill="#ffd400" opacity="${p}" />`+pr+st+(v.pp>5?`<text x=240 y=205 font-size=10 font-weight=bold text-anchor=middle fill="#8a6d00">Yellow solid forms!</text>`:'')};
+/* ---------- stations ---------- */
+const ST=[
+{t:'Flatten copper wire',ppe:'g',ctl:[],tx:'Use a hammer & anvil to flatten the end of some copper wire. (Drag the wire onto the anvil, then bring the hammer down on its end.)',
+ obs:'The end of the wire became flat and wider. It is still shiny, orange-brown copper. Only its shape changed.',
+ init:()=>({o:{w:[110,245],m:[70,140]},v:{p:0,n:0,fl:0}}),
+ lock:(k,w)=>k=='w'&&w.v.p,
+ draw:w=>{const{o,v}=w,n=v.n,t=5+n*3;return BG+`<path d="M270 205h240l-25 18h-50v34h-70v-34h-50z" fill="#4b5058" /><rect x=270 y=202 width=240 height=4 fill="#7a828c" />`+T(345,290,'Anvil')+
+  g('w',o.w[0],o.w[1],`<rect x=-75 y=-2.5 width=130 height=5 rx=2 fill="#c77d3a" /><rect x=53 y=${-t/2} width=${22+n*6} height=${t} rx=2 fill="#d9965a" />`+lab('copper wire',22),-80,-16,185,40)+
+  g('m',o.m[0],o.m[1],`<rect x=-4 y=-90 width=8 height=90 rx=3 fill="#8b5a2b" /><rect x=-26 y=-12 width=52 height=24 rx=4 fill="#6b7480" />`+lab('hammer',28),-30,-92,60,125)+
+  (v.fl?'<text x=420 y=150 font-size=26 font-weight=bold fill="#d33">CLANG!</text>':'')+T(16,24,`Hits: ${n}/4 · width of wire end: ${(2+n*2.5).toFixed(1)} mm`)},
+ drop:(k,w)=>{const{o,v}=w;
+  if(k=='w'){if(o.w[0]>280&&o.w[0]<500&&o.w[1]>140&&o.w[1]<245){o.w=[400,201];v.p=1;say('Wire laid across the anvil.')}return true}
+  if(k=='m'){if(v.p&&dist(o.m,[470,201])<55&&v.n<4){v.n++;v.fl=5;say('CLANG! Hit '+v.n+'/4. The end spreads wider.');if(v.n==4){say('The end of the wire is flat.');fin()}}else say(v.p?'Missed! Bring the hammer down on the end of the wire.':'Lay the wire on the anvil first.','m');return false}},
+ tick:w=>{if(w.v.fl)w.v.fl--}},
+
+{t:'Heat copper wire',ppe:'gh',ctl:['v'],tx:'Put the end of the copper wire in the hottest part of the Bunsen burner flame for 2 minutes. Compare before and after. (Click the red valve to light the burner; hold the wire with the forceps just above the blue cone.)',
+ obs:'Before: shiny, orange-brown. After: the heated end is dull and covered with a black flaky coating.',
+ init:()=>({o:{f:[70,235],hd:[545,235]},v:{lit:0,h:0,in:0,hot:0,hd:0}}),
+ draw:w=>{const{o,v}=w,h=v.h,c=tipc(v.in,h),L=10+h*.4;return BG+bn(300,274,v.lit)+
+  g('f',o.f[0],o.f[1],`<rect x=-60 y=-7 width=60 height=14 rx=4 fill="#8a9099" /><rect y=-2.5 width=${130-L} height=5 fill="#c77d3a" /><rect x=${130-L} y=-2.5 width=${L} height=5 rx=2 fill="${c}" />`+lab('forceps + copper wire',24),-65,-18,205,50)+
+  g('hd',o.hd[0],o.hd[1],HAND(),-25,-25,50,62)+T(16,24,'Heating time: '+clk(h)+' / 2:00')+T(455,24,'Before')+`<rect x=455 y=30 width=50 height=12 fill="#c77d3a" />`+T(525,24,'Now')+`<rect x=525 y=30 width=50 height=12 fill="${c}" />`},
+ clk:(k,w)=>{const v=w.v;v.lit^=1;say(v.lit?'Burner lit. Adjust it to a blue flame.':'Burner off.');if(!v.lit&&v.hd)fin()},
+ drop:(k,w)=>{const{o,v}=w;if(k=='hd'&&dist(o.hd,[o.f[0]+130,o.f[1]])<80){if(v.h>8||v.in)viol('You touched hot copper with bare skin and got a burn!');else say('Use the forceps. Never handle metal near a flame with bare hands.','m')}return k=='f'},
+ tick:w=>{const{o,v}=w;if(!v.lit){v.in=0;return}const z=fz(o.f[0]+130,o.f[1],300,274);v.in=z>0;
+  if(z==2){if(!v.hot){v.hot=1;say('The tip is in the hottest part of the flame.')}v.h=Math.min(100,v.h+.8)}else if(z==1)v.h=Math.min(v.hot?100:30,v.h+.15);
+  if(v.h>=100&&!v.hd){v.hd=1;say('2 minutes have passed. Look at the wire tip!')}}},
+
+{t:'Bend glass tubing',ppe:'gh',ctl:['v','snap','bend'],tx:'Scratch/snap a 6-inch piece of thistle tubing. Heat and bend it 90° using the hottest part of the flame; hold it until it cools. (Use the file, snap it, heat it in the flame, then bend.)',
+ obs:'The glass softened when hot and bent into a 90° angle. It is still glass and hardened again when it cooled.',
+ init:()=>({o:{tb:[200,240],fl:[80,150],hd:[545,150]},v:{sc:0,sn:0,h:0,tp:0,lit:0,bent:0,in:0}}),
+ draw:w=>{const{o,v}=w,L=v.sn?50:75,r=Math.min(1,v.tp/80),col=`rgb(${207+48*r|0},${233-79*r|0},${238-178*r|0})`;
+  return BG+bn(300,274,v.lit)+`<rect x=440 y=262 width=150 height=8 rx=2 fill="#6b4f3a" />`+T(455,290,'heat-proof mat')+
+  g('tb',o.tb[0],o.tb[1],(v.bent?`<path d="M${-L*.6} 8H${L*.4}V${-L*.9}" stroke="${col}" stroke-width=12 fill="none" stroke-linecap="round" />`:`<rect x=${-L} y=-6 width=${2*L} height=12 rx=3 fill="${col}" stroke="#6a7a86" />`+(v.sc&&!v.sn?'<rect x=-1 y=-9 width=2 height=18 fill="#333" />':''))+lab('glass tubing',26),-80,-30,160,62)+
+  g('fl',o.fl[0],o.fl[1],`<path d="M-30 12L30 -12L34 -4L-26 20Z" fill="#9aa2aa" stroke="#555" />`+lab('triangular file',32),-40,-20,80,60)+
+  g('hd',o.hd[0],o.hd[1],HAND(),-25,-25,50,62)+(v.sc&&!v.sn?btn('snap',16,40,110,'Snap the tube'):'')+(v.h>=100&&!v.bent&&v.tp>40?btn('bend',16,72,110,'Bend 90°'):'')+T(16,24,'Glass temperature: '+(v.tp>25?'HOT':'cool'))},
+ clk:(k,w)=>{const v=w.v;if(k=='v'){v.lit^=1;say(v.lit?'Burner lit.':'Burner off.')}if(k=='snap'){v.sn=1;say('Snap! You now have a 6-inch piece.')}if(k=='bend'){v.bent=1;say('Bent 90°. Hold it still while it cools.')}},
+ drop:(k,w)=>{const{o,v}=w;
+  if(k=='fl'){if(dist(o.fl,o.tb)<85){if(!v.sc){v.sc=1;say('You scratch the tubing once, firmly.')}else say('Already scratched. Now snap it.','m')}return false}
+  if(k=='hd'){if(dist(o.hd,o.tb)<90){if(v.tp>25)viol('Hot glass looks exactly like cold glass. You grabbed it and got burned!');else say('Fine for cold glass, but never touch glass that has been in a flame.','m')}return false}
+  if(k=='tb'&&v.tp>25){if(o.tb[0]>430&&o.tb[1]>215){o.tb=[515,246];say('Hot tube set on the heat-proof mat.')}else viol('You set hot glass on the bench: burn and fire hazard! Use the heat-proof mat.')}return true},
+ tick:w=>{const{o,v}=w;let z=0;if(v.lit&&v.sn){z=fz(o.tb[0],o.tb[1],300,274);if(z==2){v.h=Math.min(100,v.h+.9);v.tp=Math.max(v.tp,v.h)}else if(z==1){v.h=Math.min(100,v.h+.25);v.tp=Math.max(v.tp,v.h)}}v.in=z>0;if(!v.in&&v.tp>0)v.tp=Math.max(0,v.tp-.8);if(v.bent&&v.tp<=25&&!v.lit)fin()}},
+
+{t:'KI + Pb(NO₃)₂',ppe:'g',ctl:[],tx:'Mix 4-5 drops of KI with a few drops of Pb(NO₃)₂ in a clean test tube. Put the waste into the waste receptacle NOT DOWN THE SINK! Rinse the tube with the brush and store it upside-down in the rack. Do not switch or contaminate the droppers.',
+ obs:'Two clear, colorless solutions made a bright yellow solid (a precipitate) when mixed.',
+ init:()=>({o:{t:[370,238],ki:[70,150],pb:[150,150],br:[70,235]},v:{ki:0,pb:0,pp:0,dirty:0,waste:0,st:0,rx:0}}),
+ draw:w=>{const{o,v}=w,lv=Math.min(.85,(v.ki+v.pb)/12),rdy=v.waste&&!v.dirty&&!(v.ki+v.pb)&&!v.st;return BG+RACK(rdy)+CLOSE(v)+
+  `<rect x=440 y=40 width=140 height=70 rx=8 fill="#aab3bb" /><ellipse cx=510 cy=85 rx=40 ry=10 fill="#7d858f" />`+T(510,62,'SINK','middle')+`<path d="M300 70V120H360V70" fill="none" stroke="#6a7a86" stroke-width=3 />`+T(330,140,'WASTE','middle')+
+  g('ki',o.ki[0],o.ki[1],DB('KI','#eef6ff'))+g('pb',o.pb[0],o.pb[1],DB('Pb(NO₃)₂','#f3f3ee'))+
+  g('br',o.br[0],o.br[1],`<rect x=-4 y=-30 width=8 height=45 fill="#b08040" /><rect x=-10 y=15 width=20 height=18 fill="#e9d9b0" />`+lab('test tube brush',48),-20,-35,40,90)+
+  g('t',o.t[0],o.t[1],TB(lv,'#cfe9ef',v.pp,v.st?180:0)+lab('test tube',52),-18,-42,36,96)},
+ drop:(k,w)=>{const{o,v}=w,t=o.t,has=v.ki+v.pb>0;
+  if(k=='ki'||k=='pb'){if(dist(o[k],t)<60){v[k]=Math.min(8,v[k]+2);v.dirty=1;say('Added 2 drops of '+(k=='ki'?'KI':'Pb(NO₃)₂')+'.');if(v.ki>=4&&v.pb>=3&&!v.rx){v.rx=1;say('Something is happening in the tube! Look closely.')}}else if(dist(o[k],o[k=='ki'?'pb':'ki'])<50)say('Contamination! Never let the droppers touch.','m');return false}
+  if(k=='br'){if(dist(o.br,t)<60){if(has)say('Empty the waste out first.','m');else if(!v.dirty)say('The tube is already clean.','m');else{v.dirty=0;say('Tube rinsed and brushed clean.')}}return false}
+  if(has&&dist(t,[330,95])<80){v.ki=v.pb=v.pp=v.rx=0;v.waste=1;say('Waste poured into the waste receptacle.');return false}
+  if(has&&dist(t,[510,75])<85){viol('Lead solution down the sink is hazardous waste!');return false}
+  if(t[0]>415&&t[1]>165){if(has)say('Empty the tube into the waste first.','m');else if(!v.waste&&!v.dirty)say('Do the experiment first: mix the solutions.','m');else if(v.dirty||!v.waste)say('Rinse the tube clean before storing it.','m');else{v.st=1;o.t=[525,224];say('Clean tube stored upside-down on a drying peg.');fin();return true}return false}return true},
+ tick:w=>{const v=w.v;if(v.ki>=4&&v.pb>=3&&v.pp<100)v.pp+=4}},
+
+{t:'HCl + Zinc',ppe:'ga',ctl:[],tx:'Fill a test tube with about 4 mL of HCl. Add a piece of zinc. As the reaction proceeds, feel the bottom of the test tube. Use caution with acid; wear an apron, use droppers, DO NOT POUR.',
+ obs:'The zinc fizzed with lots of bubbles (a gas formed). The test tube became warm.',
+ init:()=>({o:{dr:[70,170],pr:[150,170],zn:[70,245],hd:[545,235]},v:{ml:0,zn:0,rx:0}}),
+ draw:w=>{const{o,v}=w,lv=Math.min(.85,v.ml/6),G=[300,222];const bub=v.zn&&v.ml>=3?[0,1,2,3,4].map(i=>`<circle cx=${G[0]+Math.sin(tk/3+i*2)*5} cy=${G[1]+30-((tk*3+i*14)%60)} r=3 fill="#fff" opacity=".85" />`).join(''):'';
+  return BG+`<rect x=250 y=262 width=100 height=8 rx=2 fill="#8b6b4a" />`+T(255,292,'test tube rack')+
+  `<g transform="translate(${G[0]} ${G[1]})">${TB(lv,'#cfe9ef',0,0)}${v.zn?'<rect x=-4 y=26 width=8 height=7 fill="#9aa2aa" />':''}</g>`+bub+(v.zn&&v.rx>10?`<circle cx=${G[0]} cy=${G[1]+30} r=9 fill="#ff8f2e" opacity=".25" />`:'')+
+  g('dr',o.dr[0],o.dr[1],DB('HCl dropper','#e9f8ee'))+g('pr',o.pr[0],o.pr[1],`<rect x=-18 y=-20 width=36 height=52 rx=6 fill="#e9f8ee" stroke="#555" /><rect x=-8 y=-32 width=16 height=12 fill="#444" />`+lab('HCl (stock bottle)',46))+
+  g('zn',o.zn[0],o.zn[1],`<rect x=-12 y=-5 width=24 height=10 rx=2 fill="#9aa2aa" stroke="#555" />`+lab('zinc piece',24),-25,-18,50,50)+g('hd',o.hd[0],o.hd[1],HAND('feel the tube'),-25,-25,50,62)+T(16,24,'HCl in tube: '+v.ml+' mL (need about 4)')},
+ drop:(k,w)=>{const{o,v}=w,G=[300,222];
+  if(k=='dr'){if(dist(o.dr,G)<70){v.ml=Math.min(6,v.ml+1);say('Added 1 mL of HCl ('+v.ml+' mL).')}}
+  else if(k=='pr'){if(dist(o.pr,G)<70)viol('You poured acid straight from the stock bottle and it splashed!')}
+  else if(k=='zn'){if(dist(o.zn,G)<70){if(v.ml<3)say('Add about 4 mL of HCl first.','m');else if(!v.zn){v.zn=1;say('Zinc added! Bubbles stream off the metal.')}}}
+  else if(k=='hd'&&dist(o.hd,G)<75){if(v.zn&&v.rx>12){say('The bottom of the tube feels warm.');fin()}else say('Nothing to feel yet.','m')}return false},
+ tick:w=>{if(w.v.zn)w.v.rx++}},
+
+{t:'Collect and test hydrogen',ppe:'gah',ctl:['v','flip'],tx:'Repeat step 5 but collect the gas in a large test tube using the clamp (Diagram A). Keeping the tube pointed down, bring its mouth near a Bunsen burner flame (Diagram B). (Add HCl and zinc, attach the stopper, flip the large tube mouth-down over the outlet, then test it at the flame.)',
+ obs:'Gas bubbles formed. The gas gave a squeaky pop at the flame (hydrogen burning). The tube got warm.',
+ init:()=>({o:{dr:[60,95],pr:[140,95],zn:[60,170],st:[140,170],lg:[90,235]},v:{ml:0,zn:0,at:0,up:1,fill:0,lit:0,pop:0,fl:0}}),
+ draw:w=>{const{o,v}=w,G=[250,215],bub=v.zn&&v.ml>=3?[0,1,2,3].map(i=>`<circle cx=${250+Math.sin(tk/3+i*2)*5} cy=${240-((tk*3+i*15)%55)} r=3 fill="#fff" opacity=".85" />`).join(''):'';
+  return BG+bn(500,274,v.lit)+`<rect x=205 y=130 width=6 height=140 fill="#555" /><rect x=205 y=205 width=45 height=5 fill="#555" /><rect x=190 y=266 width=60 height=6 fill="#444" />`+
+  `<g transform="translate(250 215)">${TB(Math.min(.8,v.ml/6),'#cfe9ef',0,0)}${v.zn?'<rect x=-4 y=26 width=8 height=7 fill="#9aa2aa" />':''}</g>`+bub+
+  (v.at?`<rect x=240 y=170 width=20 height=10 fill="#a0522d" /><path d="M250 172V140H360V176" stroke="#6a7a86" stroke-width=4 fill="none" />`:'')+
+  g('dr',o.dr[0],o.dr[1],DB('HCl dropper','#e9f8ee'))+g('pr',o.pr[0],o.pr[1],`<rect x=-18 y=-20 width=36 height=52 rx=6 fill="#e9f8ee" stroke="#555" /><rect x=-8 y=-32 width=16 height=12 fill="#444" />`+lab('HCl (stock)',46))+
+  g('zn',o.zn[0],o.zn[1],`<rect x=-12 y=-5 width=24 height=10 rx=2 fill="#9aa2aa" stroke="#555" />`+lab('zinc',24),-25,-18,50,50)+
+  (v.at?'':g('st',o.st[0],o.st[1],`<rect x=-12 y=-10 width=24 height=18 rx=3 fill="#a0522d" /><path d="M0 -10V-28H24V-18" stroke="#6a7a86" stroke-width=4 fill="none" />`+lab('stopper + tube',26),-30,-35,70,70))+
+  g('lg',o.lg[0],o.lg[1],`<g transform="rotate(${v.up?0:180})"><rect x=-14 y=-50 width=28 height=100 rx=14 fill="#e3f2f5" stroke="#6a7a86" stroke-width=2 /><rect x=-12 y=-48 width=24 height=96 rx=12 fill="#7cc4ff" opacity="${v.fill/160}" /></g>`,-20,-55,40,110)+
+  (v.fl?'<text x=440 y=120 font-size=28 font-weight=bold fill="#d33">POP!</text>':'')+btn('flip',16,40,190,'Flip large tube (now mouth-'+(v.up?'UP':'DOWN')+')')+T(16,24,'HCl: '+v.ml+' mL · gas collected: '+Math.round(v.fill)+'%')},
+ clk:(k,w)=>{const v=w.v;if(k=='v'){v.lit^=1;say(v.lit?'Burner lit.':'Burner off.');if(!v.lit&&v.pop)fin()}else{v.up^=1;if(v.up)v.fill=0;say('The large tube is now mouth-'+(v.up?'UP':'DOWN')+'.')}},
+ drop:(k,w)=>{const{o,v}=w,G=[250,215];
+  if(k=='dr'){if(dist(o.dr,G)<70){v.ml=Math.min(6,v.ml+1);say('Added 1 mL of HCl ('+v.ml+' mL).')}return false}
+  if(k=='pr'){if(dist(o.pr,G)<70)viol('You poured acid from the stock bottle and it splashed!');return false}
+  if(k=='zn'){if(dist(o.zn,G)<70){if(v.ml<3)say('Add about 4 mL of HCl first.','m');else if(!v.zn){v.zn=1;say('Zinc added. Gas begins to bubble.')}}return false}
+  if(k=='st'){if(dist(o.st,[250,176])<60){v.at=1;say('Stopper and delivery tube attached.')}return true}
+  if(dist(o.lg,[360,125])<45){say(v.up?'Mouth-up: hydrogen rises out. Flip the tube mouth-down.':'Tube mouth-down over the outlet: collecting hydrogen...',v.up?'m':'g');return true}
+  if(fz(o.lg[0],o.lg[1]+50,500,274)>0){if(!v.lit)say('Light the burner first.','m');else if(v.up){say('Mouth-up: no gas stayed in the tube.','m');v.fill=0}else if(v.fill>=60){v.pop=1;v.fl=6;v.fill=0;say('POP! The hydrogen burns with a squeaky pop.')}else say('Not enough hydrogen collected: nothing happens.','m')}return false},
+ tick:w=>{const{o,v}=w;if(v.fl)v.fl--;if(v.zn&&v.ml>=3&&v.at&&dist(o.lg,[360,125])<45&&!v.up)v.fill=Math.min(100,v.fill+1.5)}},
+
+{t:'NaHCO₃ + acetic acid',ppe:'gh',ctl:['v'],tx:'Over the sink, pour a small amount of acetic acid into a small beaker containing 2 scoops of NaHCO₃. Light a wooden splint and hold it in the gas being formed. Do not put the splint in the solution.',
+ obs:'Mixing fizzed and foamed (a gas formed). A burning splint held in the gas went out.',
+ init:()=>({o:{bk:[300,225],sc:[70,170],ac:[70,240],sp:[545,200]},v:{soda:0,ac:0,fz:0,sl:0,out:0,lit:0}}),
+ draw:w=>{const{o,v}=w,[x,y]=o.bk;return BG+bn(450,274,v.lit)+`<rect x=294 y=30 width=12 height=36 rx=3 fill="#8a9099" /><rect x=294 y=30 width=34 height=10 rx=3 fill="#8a9099" /><rect x=320 y=30 width=8 height=20 rx=2 fill="#8a9099" /><rect x=195 y=70 width=210 height=112 rx=14 fill="#aab3bb" stroke="#7d858f" stroke-width=3 /><rect x=207 y=82 width=186 height=88 rx=10 fill="#c9d1d8" /><ellipse cx=300 cy=160 rx=26 ry=7 fill="#7d858f" />`+T(214,100,'SINK')+
+  g('bk',x,y,`<path d="M-32 -34V34H32V-34" fill="none" stroke="#6a7a86" stroke-width=3 />`+(v.soda?`<rect x=-30 y=${34-v.soda*6} width=60 height=${v.soda*6} fill="#fff" />`:'')+(v.ac?`<rect x=-30 y=8 width=60 height=26 fill="#e3f4ec" opacity=".8" />`+[0,1,2,3,4,5,6].map(i=>`<circle cx=${-24+i*8} cy=${24-Math.min(v.fz,60)*.8+(i%2)*5} r=7 fill="#fff" opacity=".9" />`).join(''):'')+lab('beaker',50),-40,-40,80,95)+
+  g('sc',o.sc[0],o.sc[1],`<path d="M-14 -4Q0 18 14 -4Z" fill="#ddd" stroke="#555" /><rect x=-3 y=-34 width=6 height=30 fill="#b08040" />`+lab('NaHCO₃ scoop',28),-25,-38,50,75)+g('ac',o.ac[0],o.ac[1],DB('acetic acid','#f8f1c9'),-25,-40,50,90)+
+  g('sp',o.sp[0],o.sp[1],`<rect x=-3 y=-35 width=6 height=70 fill="#c9a066" />`+(v.sl?'<path d="M0 -36C-9 -46 -4 -56 0 -62C6 -54 9 -46 0 -36Z" fill="#ffb347" />':'')+lab('wooden splint',50),-14,-62,28,125)+T(16,24,'NaHCO₃: '+v.soda+' scoop(s)')},
+ clk:(k,w)=>{const v=w.v;v.lit^=1;say(v.lit?'Burner lit.':'Burner off.');if(!v.lit&&v.out)fin()},
+ drop:(k,w)=>{const{o,v}=w,B=o.bk;
+  if(k=='sc'){if(dist(o.sc,B)<70){v.soda=Math.min(4,v.soda+1);say('Added a scoop of NaHCO₃ ('+v.soda+').')}return false}
+  if(k=='ac'){if(dist(o.ac,B)<70){if(!(B[0]>205&&B[0]<395&&B[1]>80&&B[1]<175))say('Do this over the sink! Move the beaker onto the sink first.','m');else if(v.soda<2)say('Add 2 scoops of NaHCO₃ first.','m');else if(!v.ac){v.ac=1;say('Fizzing and foaming! A gas is forming.')}}return false}
+  if(k=='sp'){const sp=o.sp;if(v.lit&&fz(sp[0],sp[1]-35,450,274)>0){v.sl=1;say('The splint is lit.');return false}
+   if(dist(sp,B)<75){if(!v.sl)say('Light the splint in the burner first.','m');else if(!v.ac)say('No gas is forming yet.','m');else if(sp[1]>B[1]-5){say('Do not put the splint in the solution! It went out.','m');v.sl=0}else{v.out=1;v.sl=0;say('The flame goes out when it is held in the gas!')}}return false}
+  return true},
+ tick:w=>{if(w.v.ac&&w.v.fz<60)w.v.fz++}},
+
+{t:'Dissolve salt, then evaporate',ppe:'g',ctl:['hp'],tx:'Mix about 5 grams of table salt into 50 mL of hot water. Place a few drops of this solution in an evaporating dish. Set the dish on a hot plate to evaporate the liquid.',
+ obs:'Salt dissolved into clear water. When the water evaporated, white salt crystals were left behind.',
+ init:()=>({o:{sl:[70,120],dr:[70,190],dh:[330,238],hd:[545,125]},v:{salt:0,dis:0,ld:0,dp:0,pl:0,on:0,pt:0,ev:0}}),
+ draw:w=>{const{o,v}=w,hot=Math.round(v.pt*1.6),[dx,dy]=o.dh,e=v.ev;
+  return BG+`<rect x=440 y=250 width=140 height=16 rx=4 fill="rgb(${68+hot},68,68)" />`+T(450,290,'hot plate')+`<g data-k="hp" style="cursor:pointer"><circle cx=565 cy=242 r=11 fill="${v.on?'#2e9d3a':'#c33'}" /><text x=548 y=225 font-size=11 fill="#333">${v.on?'ON':'OFF'}</text></g>`+
+  `<g transform="translate(170 215)"><path d="M-36 -34V34H36V-34" fill="none" stroke="#6a7a86" stroke-width=3 /><rect x=-34 y=-14 width=68 height=48 fill="${v.salt&&!v.dis?'#f1f1ee':'#cfe8f5'}" opacity=".85" />${[0,1,2].map(i=>`<path d="M${-14+i*14} -40q-6 -10 0 -20t0 -20" stroke="#fff" stroke-width=3 fill="none" opacity=".7" />`).join('')}</g>`+T(170,276,'hot water (50 mL)','middle')+
+  g('dh',dx,dy,`<path d="M-28 -6Q0 22 28 -6Z" fill="#f2f2f2" stroke="#777" />`+(v.dp&&e<100?`<ellipse cx=0 cy=0 rx=${18*(1-e/100)+2} ry=3 fill="#cfe8f5" />`:'')+(e>=100?[-14,-6,2,10,-2,6].map((c,i)=>`<circle cx=${c} cy=${-1+(i%2)*3} r=3 fill="#fff" stroke="#bbb" />`).join(''):'')+lab('evaporating dish',28),-35,-20,70,60)+
+  g('sl',o.sl[0],o.sl[1],`<path d="M-14 -4Q0 18 14 -4Z" fill="#fff" stroke="#555" /><rect x=-3 y=-34 width=6 height=30 fill="#b08040" />`+lab('salt scoop (1 g)',28),-25,-38,50,75)+
+  g('dr',o.dr[0],o.dr[1],DB('dropper','#dfeef7'),-25,-40,50,90)+g('hd',o.hd[0],o.hd[1],HAND(),-25,-25,50,62)+T(16,24,'Salt: '+v.salt+' g (need about 5)')},
+ clk:(k,w)=>{const v=w.v;v.on^=1;say(v.on?'Hot plate on.':'Hot plate off.')},
+ drop:(k,w)=>{const{o,v}=w,BK=[170,215];
+  if(k=='sl'){if(dist(o.sl,BK)<75){v.salt=Math.min(7,v.salt+1);say('Added 1 g of salt ('+v.salt+' g).');if(v.salt>=5&&!v.dis){v.dis=1;say('The salt dissolves and the liquid looks clear.')}}return false}
+  if(k=='dr'){if(dist(o.dr,BK)<75){if(!v.dis)say('Dissolve about 5 g of salt first.','m');else{v.ld=1;say('Dropper filled with salt solution.')}}else if(dist(o.dr,o.dh)<60){if(v.ld){v.dp=1;v.ld=0;say('A few drops placed in the evaporating dish.')}else say('The dropper is empty.','m')}return false}
+  if(k=='dh'){if(o.dh[0]>440&&o.dh[1]>205){o.dh=[505,240];v.pl=1;say('Dish set on the hot plate.')}else v.pl=0;return true}
+  if(k=='hd'){if(dist(o.hd,[505,245])<95){if(v.pt>25)viol('A hot plate looks the same hot or cold. You touched it and got burned!');else say('It is cold now, but never touch a hot plate or dish.','m')}return false}},
+ tick:w=>{const v=w.v;v.pt=v.on?Math.min(100,v.pt+1.2):Math.max(0,v.pt-.6);if(v.pl&&v.dp&&v.pt>45&&v.ev<100){if(!v.ev)say('Water is evaporating from the dish...');v.ev=Math.min(100,v.ev+1.5);if(v.ev>=100)say('All the water evaporated. White crystals remain!')}if(v.ev>=100&&!v.on)fin()}},
+
+{t:'Burn ethanol',ppe:'gh',ctl:['v'],mv:(k,w)=>{if(k=='b')w.o.b[1]=274},tx:'Measure out 4 mL of ethyl alcohol. Show your graduated cylinder to your teacher before proceeding. Waft. Pour the ethanol onto your tabletop. Light the alcohol with your Bunsen burner. After the flame goes out, try to light the remaining liquid.',
+ obs:'Ethanol had a strong sweet odor, burned with a pale blue flame, and gave off heat and light. The leftover liquid would not burn again.',
+ init:()=>({o:{cy:[150,215],eb:[70,130],hd:[545,215],ns:[545,140],b:[450,274]},v:{ml:0,ok:0,lit:0,pud:0,fire:0,burned:0,aw:0,rel:0}}),
+ draw:w=>{const{o,v}=w;return BG+`<rect x=250 y=262 width=150 height=8 rx=2 fill="#8b6b4a" />`+T(290,290,'tabletop')+
+  (v.pud?`<ellipse cx=330 cy=261 rx=${v.burned&&v.fire<=0?12:30} ry=3 fill="#bfe3f3" />`:'')+(v.fire>0?'<path d="M312 261C300 244 320 238 330 218C340 238 360 244 348 261Z" fill="#6fa8ff" opacity=".8" />':'')+
+  `<text x=545 y=62 font-size=38 text-anchor=middle>🧑‍🏫</text>`+T(545,92,'Teacher'+(v.ok?' ✓':''),'middle')+T(545,106,'(show cylinder here)','middle')+
+  g('eb',o.eb[0],o.eb[1],`<rect x=-18 y=-20 width=36 height=52 rx=6 fill="#eef3f6" stroke="#555" /><rect x=-8 y=-32 width=16 height=12 fill="#444" />`+lab('ethanol',46))+
+  g('cy',o.cy[0],o.cy[1],`<rect x=-10 y=-40 width=20 height=80 rx=3 fill="#e3f2f5" stroke="#6a7a86" stroke-width=2 />`+(v.ml?`<rect x=-8 y=${40-v.ml*10} width=16 height=${v.ml*10} fill="#c9e7f3" />`:'')+'<line x1=10 y1=0 x2=18 y2=0 stroke="#333" />'+`<text x=20 y=4 font-size=10 fill="#333">4 mL</text>`+lab('graduated cylinder',56),-20,-45,60,105)+
+  g('hd',o.hd[0],o.hd[1],HAND('waft'),-25,-25,50,62)+g('ns',o.ns[0],o.ns[1],`<text font-size=34 text-anchor=middle y=10>👃</text>`+lab('sniff',32),-25,-25,50,62)+bn(o.b[0],274,v.lit,'b')+T(16,24,'Ethanol in cylinder: '+v.ml+' mL')},
+ clk:(k,w)=>{const v=w.v;v.lit^=1;say(v.lit?'Burner lit.':'Burner off.');if(!v.lit&&v.rel)fin()},
+ drop:(k,w)=>{const{o,v}=w,C=o.cy;
+  if(k=='eb'){if(dist(o.eb,C)<65){if(v.ml>=6)say('Too much! You only need 4 mL.','m');else{v.ml++;say('Cylinder now has '+v.ml+' mL.')}}return false}
+  if(k=='hd'){if(dist(o.hd,C)<90){if(v.ml)say('You waft the vapor toward your nose: a sharp, sweet odor.');else say('Nothing in the cylinder yet.','m')}return false}
+  if(k=='ns'){if(dist(o.ns,C)<90){if(v.ml)viol('You sniffed concentrated ethanol vapor. Always waft!');else say('Nothing to smell yet.','m')}return false}
+  if(k=='cy'){if(dist(C,[545,75])<80){if(v.ml==4){v.ok=1;say('Teacher checks and approves: 4 mL.')}else say('Teacher: "That is '+v.ml+' mL. I need exactly 4 mL."','m');return false}
+   if(C[0]>250&&C[0]<400&&C[1]>195){if(v.lit)viol('You poured ethanol near an open flame: flash fire!');else if(!v.ok)viol('You poured before your teacher checked your measurement.');else if(!v.ml)say('The cylinder is empty.','m');else{v.pud=1;v.ml=0;say('Ethanol poured onto the tabletop.')}return false}return true}
+  return true},
+ tick:w=>{const{o,v}=w,near=Math.abs(o.b[0]-330)<70;if(v.burned&&!near)v.aw=1;
+  if(v.pud&&v.lit&&near){if(!v.burned){v.burned=1;v.fire=70;say('The ethanol ignites with a pale blue flame!')}else if(v.fire<=0&&v.aw&&!v.rel){v.rel=1;say('You try to light the leftover liquid again: it will not burn.')}}
+  if(v.fire>0){v.fire--;if(!v.fire)say('The flame goes out. A little liquid is left.')}}},
+
+{t:'Burn magnesium',ppe:'gh',ctl:['v','aw'],tx:'Hold a piece of magnesium ribbon with crucible tongs and light it with the Bunsen burner. DO NOT LOOK DIRECTLY AT THE FLAME while the metal burns. (Light the burner, hold the Mg in the flame, and use the "look away" button.)',
+ obs:'Mg burned with a blinding white light and heat, leaving a brittle white powder very different from the shiny gray metal.',
+ init:()=>({o:{tg:[70,235],wt:[70,150],hd:[545,235]},v:{lit:0,aw:0,bn:0,ash:0,fl:0,in:0}}),
+ draw:w=>{const{o,v}=w,[x,y]=o.tg,tx=x+120;return BG+bn(300,274,v.lit)+
+  g('tg',x,y,`<rect x=-60 y=-6 width=60 height=12 rx=3 fill="#8a9099" /><rect y=-2 width=${v.ash?96:120} height=4 fill="#b9bec5" />${v.ash?'<rect x=96 y=-4 width=24 height=8 rx=3 fill="#f4f4f4" stroke="#ccc" />':''}`+lab('crucible tongs + Mg ribbon',24),-65,-16,190,46)+
+  g('wt',o.wt[0],o.wt[1],`<rect x=-16 y=-14 width=32 height=44 rx=8 fill="#cfe8f5" stroke="#555" /><rect x=-6 y=-26 width=12 height=12 fill="#444" />`+lab('water bottle',44),-25,-30,50,85)+g('hd',o.hd[0],o.hd[1],HAND(),-25,-25,50,62)+
+  (v.bn?`<circle cx=${tx} cy=${y} r=${v.aw?34:70} fill="#fff" opacity=".9" /><circle cx=${tx} cy=${y} r=14 fill="#fffbe0" />`:'')+btn('aw',16,40,150,v.aw?'🙈 Looking away':'👀 Look away')+T(16,24,v.bn?'Burning...':v.ash?'Burned: white powder':'Mg ribbon: shiny gray metal')},
+ clk:(k,w)=>{const v=w.v;if(k=='v'){v.lit^=1;say(v.lit?'Burner lit.':'Burner off.');if(!v.lit&&v.ash)fin()}else{v.aw^=1;if(!v.aw&&v.bn){viol('You looked at the burning magnesium. The light can damage your eyes!');return}say(v.aw?'You turn your head away.':'You turn back.')}},
+ drop:(k,w)=>{const{o,v}=w,tip=[o.tg[0]+120,o.tg[1]];if(k=='wt'){if(dist(o.wt,tip)<80){if(v.bn)viol('Water on burning magnesium makes the fire worse!');else say('Not now.','m')}return false}
+  if(k=='hd'){if(dist(o.hd,tip)<80){if(v.bn||v.in)viol('You touched the burning metal and got a burn!');else say('Use the tongs. Never hold Mg with your hands.','m')}return false}return true},
+ tick:w=>{const{o,v}=w;v.in=0;if(v.lit&&!v.bn&&!v.ash){const z=fz(o.tg[0]+120,o.tg[1],300,274);v.in=z>0;if(z>0){if(!v.aw){viol('You ignited the Mg while looking at it. The light caused eye damage!');return}v.bn=1;v.fl=40;say('Brilliant white light!')}}
+  if(v.bn){v.fl--;if(v.fl<=0){v.bn=0;v.ash=1;say('Burning stops. A brittle white powder remains.')}}}}
+];
+/* ---------- engine ---------- */
+function say(t,c){log.unshift([c||'g',t]);if(log.length>6)log.pop();rl()}
+function rl(){const e=$('lg');if(e)e.innerHTML=log.map(l=>`<p class="${l[0]}">${l[1]}</p>`).join('')||'<p>Put on your safety gear, then begin the procedure.</p>'}
+function mk(i){const r=ST[i].init();r.h=JSON.parse(JSON.stringify(r.o));return r}
+function viol(m){Vn++;$('vt').textContent=m;$('mdl').style.display='flex'}
+function rst(){$('mdl').style.display='none';Ws[cur]=mk(cur);log=[];render()}
+function ppeOK(){for(const k of ST[cur].ppe)if(!P[k]){viol(PM[k]+' ('+PN[k].slice(3)+' required)');return 0}return 1}
+function fin(){if(done[cur])return;done[cur]=1;say('✔ Station complete! Write your observations on the left.');render()}
+function go(i){cur=i;if(!Ws[i])Ws[i]=mk(i);log=[];render()}
+function rp(){const e=$('sc');if(e)e.innerHTML=ST[cur].draw(Ws[cur])}
+function svgp(e){const v=$('sc'),p=v.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(v.getScreenCTM().inverse())}
+document.addEventListener('pointerdown',e=>{const t=e.target.closest&&e.target.closest('[data-k]');if(!t||!$('sc')||done[cur])return;e.preventDefault();const s=ST[cur],w=Ws[cur],k=t.dataset.k;
+ if(!ppeOK())return;if(s.ctl.includes(k)){s.clk(k,w);rp();return}
+ if(s.lock&&s.lock(k,w))return;const q=svgp(e),p=w.o[k];if(p)sd={k,dx:q.x-p[0],dy:q.y-p[1]}});
+document.addEventListener('pointermove',e=>{if(!sd)return;const q=svgp(e),w=Ws[cur],s=ST[cur];w.o[sd.k]=[Math.max(15,Math.min(585,q.x-sd.dx)),Math.max(15,Math.min(290,q.y-sd.dy))];s.mv&&s.mv(sd.k,w);rp()});
+function up(){if(!sd)return;const k=sd.k;sd=null;const s=ST[cur],w=Ws[cur];if(s.drop(k,w)===false)w.o[k]=[...w.h[k]];rp();rl()}
+document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
+setInterval(()=>{tk++;if(!$('sc')||$('mdl').style.display=='flex')return;const s=ST[cur];s.tick&&s.tick(Ws[cur]);rp()},120);
+function render(){
+ const s=ST[cur],all=ST.every((_,i)=>done[i]),ok=ind.length==4&&IA.every(x=>ind.includes(x));
+ $('app').innerHTML=`<div class="grid"><aside class="card"><h2>Lab steps</h2>${ST.map((x,i)=>i==cur?`<div class="stp cur"><b>${done[i]?'✅':'🔬'} ${i+1}. ${x.t}</b><p>${x.tx}</p><b>My observations</b><textarea oninput="OB[${i}]=this.value" placeholder="Describe what YOU see: color, bubbles, temperature, shape, odor, light...">${esc(OB[i]||'')}</textarea><div class="row"><span>Type of change:</span>${[['P','Physical'],['C','Chemical']].map(v=>`<button class="${pcv[i]==v[0]?'on':''}" onclick="pcv[${i}]='${v[0]}';render()">${v[1]}</button>`).join('')}</div>${done[i]?`<details><summary>Compare with a model observation</summary>${x.obs}</details>`:''}</div>`:`<button class="stp ${done[i]?'dn':''}" onclick="go(${i})">${done[i]?'✅':'⬜'} ${i+1}. ${x.t}</button>`).join('')}</aside>
+<section><div class="card"><div class="row"><b>Safety gear:</b>${Object.keys(PN).map(k=>`<button class="gear ${P[k]?'on':''}" onclick="P['${k}']^=1;render()">${PN[k]}${P[k]?' ✓':''}</button>`).join('')}<span style="margin-left:auto">⚠️ Violations: <b class="${Vn?'v':''}">${Vn}</b></span></div></div>
+<div class="card"><h2>Station ${cur+1}: ${s.t}</h2><svg id="sc" viewBox="0 0 600 300">${s.draw(Ws[cur])}</svg><div class="log" id="lg"></div><p style="font-size:.82rem;opacity:.8;margin:6px 0 0">Drag supplies to use them. Click the red valve and yellow buttons. Required gear: ${[...s.ppe].map(k=>PN[k]).join(', ')}.</p></div></section></div>
+${all?`<div class="card"><h2>Questions</h2><p>Select the <b>4 indicators of chemical change</b> you observed:</p>${IND.map((x,i)=>`<label style="display:block"><input type="checkbox" ${ind.includes(i)?'checked':''} onchange="ind.includes(${i})?ind.splice(ind.indexOf(${i}),1):ind.push(${i});render()"> ${x}</label>`).join('')}<p class="${ok?'g':''}">${ind.length==4?(ok?'✓ Correct!':'✗ Not quite. Think about what you saw in stations 2, 4, 5 and 10.'):''}</p><p><b>Conclusion:</b> summarize the difference between chemical and physical changes.</p><textarea></textarea><p>Safety violations this session: <b>${Vn}</b>${Vn==0?' 🏅 Perfect safety record!':''}</p></div>`:''}`;
+ rl()}
+go(0);
+</script></body></html>
+
+</body></html>
